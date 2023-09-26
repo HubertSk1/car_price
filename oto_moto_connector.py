@@ -1,11 +1,11 @@
 import requests
 import json
 from car import car
+from db_connector import db_connector
 
 class oto_moto_checker():
     def __init__(self):
-        self.list_of_cars=[]
-
+        self.db=db_connector("database/database.db")
     def write_string_to_file(self,name:str,input:str)->None:
         with open(f"pages/{name}", 'w', encoding='utf-8') as text_file:
             text_file.write(input)
@@ -47,7 +47,7 @@ class oto_moto_checker():
         for offer in offers:
             new_car = car(offer,year)
             if new_car.status == 0:
-                self.list_of_cars.append(new_car)
+                self.db.insert_car(new_car,"oto_moto_cars")
 
     def parse_all_pages(self,production_year,brand=None,model=None):
         page_number = 1
@@ -56,13 +56,9 @@ class oto_moto_checker():
             if page_number>1:
                 prev_offers=offers
             url= self.make_url_from_filter(production_year,brand,model,page_number)
-            print(url)
             res = self.get_response_from_url(url)
             offers = self.get_offers_from_response(res)
             if prev_offers and prev_offers==offers:
-                print("break")
-                # print(offers)
-                # print(prev_offers)
                 break
             self.get_cars_from_offers(offers,production_year)
             print(f"page {page_number} parsed")
@@ -72,10 +68,8 @@ om = oto_moto_checker()
 year=2017
 brand="Honda"
 om.parse_all_pages(year,brand)
-car_list_string=""
-for element in om.list_of_cars:
-    car_list_string+=str(element)+"\n"
-om.write_string_to_file("Cars",car_list_string)
+
+
 
 
 
