@@ -6,7 +6,11 @@ class oto_moto_checker():
     def __init__(self):
         self.list_of_cars=[]
 
-    def make_url_from_filter(self,brand=None,model=None,year=None):
+    def write_string_to_file(self,name:str,input:str)->None:
+        with open(f"pages/{name}", 'w', encoding='utf-8') as text_file:
+            text_file.write(input)
+
+    def make_url_from_filter(self,year, brand=None, model=None, page=None):
         url = f"https://www.otomoto.pl/osobowe"
         if brand:
             url=url+f"/{brand}"
@@ -14,6 +18,8 @@ class oto_moto_checker():
                 url+=f"/{model}"
         if year:
             url+=f"/od-{year}?search%5Bfilter_float_year%3Ato%5D={year}"
+        if page:
+            url+=f"&page={page}"
         return url
 
     def get_response_from_url(self,url)->requests.Response:
@@ -24,31 +30,52 @@ class oto_moto_checker():
             return None
         else:
             return response
-        
+
+    def has_next_page(self,res:requests.Response):
+        txt=res.text.split("title=\"Next Page\" data-testid=\"pagination-step-forwards\" aria-disabled=\"")[1].split("\"")[0]
+        if txt=="true":
+            return False
+        elif txt=="false":
+            return True
+
     def get_offers_from_response(self,response:requests.Response)->dict:
         long_part = "["+response.text.split("\"itemListElement\":[")[1].split("]}}</script><meta")[0]+"]"
         structure = json.loads(long_part)
-        print(structure)
         return structure
 
-    def write_string_to_file(name:str,input:str)->None:
-        with open(name, 'w', encoding='utf-8') as text_file:
-            text_file.write(input)
-
-    def offers_to_car_list(self,offers:json,year)->None:
+    def get_cars_from_offers(self,offers:json,year)->None:
         for offer in offers:
             new_car = car(offer,year)
-            self.list_of_cars.append(new_car)
-            print(new_car)
-            print("\n")
+            if new_car.status == 0:
+                self.list_of_cars.append(new_car)
 
-# url = "https://www.otomoto.pl/osobowe/bmw/"
-    
-
-Ot_Mt = oto_moto_checker()
+    def parse_all_pages(self,production_year,brand=None,model=None):
+        page_number = 1
+        prev_offers = None
+        while 1:
+            if page_number>1:
+                prev_offers=offers
+            url= self.make_url_from_filter(production_year,brand,model,page_number)
+            print(url)
+            res = self.get_response_from_url(url)
+            offers = self.get_offers_from_response(res)
+            if prev_offers and prev_offers==offers:
+                print("break")
+                # print(offers)
+                # print(prev_offers)
+                break
+            self.get_cars_from_offers(offers,production_year)
+            print(f"page {page_number} parsed")
+            page_number +=1
+            
+om = oto_moto_checker()
 year=2017
-url=Ot_Mt.make_url_from_filter("BMW","1M")
-res = Ot_Mt.get_response_from_url(url)
+brand="Honda"
+om.parse_all_pages(year,brand)
+car_list_string=""
+for element in om.list_of_cars:
+    car_list_string+=str(element)+"\n"
+om.write_string_to_file("Cars",car_list_string)
 
-offers = Ot_Mt.get_offers_from_response(res)
-Ot_Mt.offers_to_car_list(offers,2017)
+
+
